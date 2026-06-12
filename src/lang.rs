@@ -16,7 +16,6 @@ pub struct LangSpec {
     pub label: &'static str,
     /// StarDict id / release-asset stem (e.g. `"fr-conj"`). Used by the build /
     /// package stages.
-    #[allow(dead_code)]
     pub id: &'static str,
 }
 

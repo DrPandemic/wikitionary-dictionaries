@@ -7,8 +7,11 @@
 //!   build    — filter verbs, normalize/group forms, emit a StarDict
 //!   package  — tar + zstd the StarDict into a release asset
 
+mod build;
 mod fetch;
 mod lang;
+mod model;
+mod stardict;
 
 use std::process::ExitCode;
 
@@ -44,7 +47,7 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Fetch { lang } => resolve(&lang).and_then(|l| fetch::run(l)),
-        Command::Build { lang } => resolve(&lang).map(|_| todo!("Phase 2: build StarDict")),
+        Command::Build { lang } => resolve(&lang).and_then(|l| build::run(l)),
         Command::Package { lang } => resolve(&lang).map(|_| todo!("Phase 3: package release asset")),
     };
     match result {
