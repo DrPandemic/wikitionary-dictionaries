@@ -141,7 +141,12 @@ pub fn run(lang: &LangSpec) -> Result<()> {
     };
     let written = stardict::write(&out_dir, lang.id, &meta, &entries)?;
 
-    println!("Wrote {} entries to {}/{}.{{ifo,idx,dict}}", written, out_dir.display(), lang.id);
+    println!(
+        "Wrote {} entries to {}/{}.{{ifo,idx,dict,dict.dz}}",
+        written,
+        out_dir.display(),
+        lang.id
+    );
     Ok(())
 }
 

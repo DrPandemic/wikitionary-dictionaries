@@ -106,17 +106,17 @@ impl Conjugation {
     }
 
     /// The HTML entry body for `sametypesequence=h`: each tense as a bold heading
-    /// followed by its `<br>`-separated person forms. Real newlines are kept so
-    /// readers (and a stripped-text parser) see one form per line.
+    /// followed by its `<br>`-separated person forms. `<br>` is the only line
+    /// break — no literal newlines — so the body stays compact.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         for sec in &self.sections {
             out.push_str("<b>");
             push_escaped(&mut out, sec.label);
-            out.push_str("</b><br>\n");
+            out.push_str("</b><br>");
             for form in &sec.forms {
                 push_escaped(&mut out, form);
-                out.push_str("<br>\n");
+                out.push_str("<br>");
             }
         }
         out

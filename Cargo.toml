@@ -18,3 +18,12 @@ ureq = "2"
 indicatif = "0.17"
 anyhow = "1"
 flate2 = "1"
+tar = "0.4"
+zstd = "0.13"
+sha2 = "0.10"
+
+[dev-dependencies]
+# The exact reader + zstd decoder irondict uses — to verify our release assets
+# round-trip through irondict's install pipeline.
+stardict = { version = "0.2", default-features = false }
+ruzstd = "0.8"
