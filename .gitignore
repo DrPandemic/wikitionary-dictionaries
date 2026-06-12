@@ -1,0 +1,8 @@
+/target
+# Local working plan, not committed.
+/PLAN.md
+# Heavy pipeline inputs/outputs — never committed.
+/data
+/build
+*.jsonl
+*.tar.zst

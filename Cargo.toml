@@ -1,0 +1,16 @@
+[package]
+name = "wiktionary-verb-dictionaries"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Build StarDict verb-conjugation companion dictionaries from Wiktionary data (via kaikki/wiktextract)."
+repository = "https://github.com/DrPandemic/wikitionary-verb-dictionaries"
+
+[[bin]]
+name = "verbdict"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
