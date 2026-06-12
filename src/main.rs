@@ -6,8 +6,11 @@
 //!   fetch    — download the kaikki bulk JSONL extract for a language
 //!   build    — filter verbs, normalize/group forms, emit a StarDict
 //!   package  — tar + zstd the StarDict into a release asset
-//!
-//! All stages are stubs in Phase 0; the CLI shape is what's wired up.
+
+mod fetch;
+mod lang;
+
+use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
@@ -20,7 +23,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Download the kaikki bulk JSONL extract for a language.
+    /// Download the kaikki raw wiktextract dump for a language.
     Fetch {
         /// Language code (only `fr` is supported initially).
         lang: String,
@@ -37,11 +40,23 @@ enum Command {
     },
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cli = Cli::parse();
-    match cli.command {
-        Command::Fetch { lang } => todo!("Phase 2: fetch kaikki extract for {lang}"),
-        Command::Build { lang } => todo!("Phase 2: build StarDict for {lang}"),
-        Command::Package { lang } => todo!("Phase 3: package release asset for {lang}"),
+    let result = match cli.command {
+        Command::Fetch { lang } => resolve(&lang).and_then(|l| fetch::run(l)),
+        Command::Build { lang } => resolve(&lang).map(|_| todo!("Phase 2: build StarDict")),
+        Command::Package { lang } => resolve(&lang).map(|_| todo!("Phase 3: package release asset")),
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("error: {err:#}");
+            ExitCode::FAILURE
+        }
     }
+}
+
+/// Resolve a language code or fail with a helpful message.
+fn resolve(code: &str) -> anyhow::Result<&'static lang::LangSpec> {
+    lang::resolve(code).ok_or_else(|| anyhow::anyhow!("unsupported language `{code}` (try `fr`)"))
 }
