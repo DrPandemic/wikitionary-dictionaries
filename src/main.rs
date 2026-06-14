@@ -1,6 +1,6 @@
-//! Builds StarDict verb-conjugation companion dictionaries from Wiktionary data.
+//! Builds StarDict dictionaries from Wiktionary data (via kaikki/wiktextract).
 //!
-//! See `PLAN.md` for the design. The pipeline runs in stages, each exposed as a
+//! The pipeline runs in stages, each exposed as a
 //! subcommand so it can run end-to-end or one stage at a time:
 //!
 //!   fetch    — download the kaikki bulk JSONL extract for a language
@@ -20,7 +20,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "verbdict", version, about, long_about = None)]
+#[command(name = "wiktdict", version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

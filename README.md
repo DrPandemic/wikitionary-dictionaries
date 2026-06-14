@@ -1,14 +1,17 @@
-# wikitionary-verb-dictionaries
+# wikitionary-dictionaries
 
-Build pipeline that turns Wiktionary conjugation data (via
+Build pipeline that turns Wiktionary data (via
 [kaikki.org / wiktextract](https://kaikki.org/)) into compact **StarDict
-companion dictionaries** of verb-conjugation tables.
+dictionaries**, published as release assets so any StarDict reader can install
+them. Two products share one pipeline:
 
-These are published as release assets so any StarDict reader can install them
-alongside a regular monolingual dictionary, which on its own lacks conjugation
-tables.
+- **Verb-conjugation companions** — full conjugation tables, to sit alongside a
+  reading dictionary that on its own lacks them (French is the first target).
+- **Monolingual definition dictionaries** — full headword/definition entries for
+  languages the upstream [`xxyzz/wiktionary_stardict`](https://github.com/xxyzz/wiktionary_stardict)
+  releases don't cover (Italian is the first target). See [PLAN.md](PLAN.md).
 
-French is the first target; more languages follow.
+More languages follow.
 
 ## License
 

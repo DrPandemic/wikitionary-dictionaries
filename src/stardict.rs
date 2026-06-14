@@ -126,7 +126,7 @@ mod tests {
             sametypesequence: "h",
         };
 
-        let dir = std::env::temp_dir().join(format!("verbdict-dz-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("wiktdict-dz-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         write(&dir, "t", &meta, &entries).unwrap();
         // Force the dictzip path: only `.dict.dz` remains.

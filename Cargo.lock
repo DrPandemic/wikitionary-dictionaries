@@ -1110,7 +1110,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wiktionary-verb-dictionaries"
+name = "wiktionary-dictionaries"
 version = "0.1.0"
 dependencies = [
  "anyhow",

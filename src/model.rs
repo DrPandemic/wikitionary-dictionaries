@@ -27,7 +27,7 @@ struct Block {
 }
 
 /// The 22 blocks, in display order. Derived from the real frwiktionary dump
-/// (verified against `lire`); see PLAN.md for the source table. Each `tags`
+/// (verified against `lire`). Each `tags`
 /// slice is kept sorted ascending — keep it that way (a debug assert checks it).
 static BLOCKS: &[Block] = &[
     // Indicatif

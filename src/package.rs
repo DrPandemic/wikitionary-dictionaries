@@ -128,7 +128,7 @@ mod tests {
     /// Proves the assets are consumable by the exact crates irondict uses.
     #[test]
     fn dictzip_asset_installs_through_irondict_chain() {
-        let work = std::env::temp_dir().join(format!("verbdict-pkg-test-{}", std::process::id()));
+        let work = std::env::temp_dir().join(format!("wiktdict-pkg-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&work);
         let src = work.join("src");
 
