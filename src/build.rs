@@ -95,10 +95,13 @@ struct DefSound {
 }
 
 /// Dispatch on the language's product: conjugation companion or full definitions.
-pub fn run(lang: &LangSpec) -> Result<()> {
+///
+/// `lemmas_only` drops inflected-form sections from a definitions build (no
+/// effect on a conjugation build, which has no such sections).
+pub fn run(lang: &LangSpec, lemmas_only: bool) -> Result<()> {
     match lang.product {
         Product::Conjugation => build_conjugation(lang),
-        Product::Definitions => build_definitions(lang),
+        Product::Definitions => build_definitions(lang, lemmas_only),
     }
 }
 
@@ -219,10 +222,14 @@ fn build_conjugation(lang: &LangSpec) -> Result<()> {
 /// Build the full monolingual definition dictionary: keep every `lang_code`
 /// object, turn each into a part-of-speech section, group sections by headword,
 /// render to HTML, and write a StarDict set.
-fn build_definitions(lang: &LangSpec) -> Result<()> {
+fn build_definitions(lang: &LangSpec, lemmas_only: bool) -> Result<()> {
     let (file, total) = open_dump(lang)?;
 
-    println!("Building {} definition dictionary", lang.label);
+    if lemmas_only {
+        println!("Building {} definition dictionary (lemmas only)", lang.label);
+    } else {
+        println!("Building {} definition dictionary", lang.label);
+    }
 
     let pb = byte_bar(total);
     let counted = pb.wrap_read(file);
@@ -250,6 +257,11 @@ fn build_definitions(lang: &LangSpec) -> Result<()> {
         let Some(section) = to_section(&entry) else {
             continue;
         };
+        // A lemmas-only build skips inflected forms (verb forms + "forma flessa"),
+        // keeping the ~75k rich lemma entries over the ~520k full set.
+        if lemmas_only && section.is_inflected_form() {
+            continue;
+        }
         sections += 1;
         pb.set_message(format!("{sections} sections"));
 

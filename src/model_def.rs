@@ -49,6 +49,15 @@ impl PosSection {
     pub fn is_empty(&self) -> bool {
         self.senses.is_empty() && self.etymology.is_none()
     }
+
+    /// True when this section is an inflected form (a verb form like `corro` or a
+    /// "forma flessa" noun/adjective) rather than a lemma. Italian Wiktionary
+    /// labels these `Voce verbale` or `…, forma flessa`; the `--lemmas-only`
+    /// build drops them, keeping only the ~75k rich lemma entries.
+    pub fn is_inflected_form(&self) -> bool {
+        let pos = self.pos_title.to_lowercase();
+        pos == "voce verbale" || pos.contains("forma flessa")
+    }
 }
 
 /// A headword with all its part-of-speech sections, in dump order.
@@ -258,6 +267,23 @@ mod tests {
         );
         // No phonetic → no headword line emitted.
         assert!(!html.contains("<p>corro"));
+    }
+
+    #[test]
+    fn classifies_inflected_forms() {
+        let section = |pos: &str| PosSection {
+            pos_title: pos.into(),
+            ipa: None,
+            etymology: None,
+            senses: vec![],
+        };
+        assert!(section("Voce verbale").is_inflected_form());
+        assert!(section("Sostantivo, forma flessa").is_inflected_form());
+        assert!(section("Aggettivo, forma flessa").is_inflected_form());
+        // Lemmas are kept.
+        assert!(!section("Sostantivo").is_inflected_form());
+        assert!(!section("Verbo").is_inflected_form());
+        assert!(!section("Locuzione nominale").is_inflected_form());
     }
 
     #[test]

@@ -42,6 +42,9 @@ enum Command {
     Build {
         /// Language code.
         lang: String,
+        /// Drop inflected-form entries, keeping only lemmas (definitions builds).
+        #[arg(long)]
+        lemmas_only: bool,
     },
     /// Tar + zstd the built StarDict into a release asset.
     Package {
@@ -54,7 +57,9 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Fetch { lang } => resolve(&lang).and_then(|l| fetch::run(l)),
-        Command::Build { lang } => resolve(&lang).and_then(|l| build::run(l)),
+        Command::Build { lang, lemmas_only } => {
+            resolve(&lang).and_then(|l| build::run(l, lemmas_only))
+        }
         Command::Package { lang } => resolve(&lang).and_then(|l| package::run(l)),
     };
     match result {
