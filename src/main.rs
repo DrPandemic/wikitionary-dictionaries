@@ -4,14 +4,19 @@
 //! subcommand so it can run end-to-end or one stage at a time:
 //!
 //!   fetch    — download the kaikki bulk JSONL extract for a language
-//!   build    — filter verbs, normalize/group forms, emit a StarDict
+//!   build    — extract the language's product (conjugation or definitions),
+//!              group and render entries, emit a StarDict
 //!   package  — tar + zstd the StarDict into a release asset
+//!
+//! The product is selected per language in `lang.rs` (French → conjugation
+//! companion, Italian → full monolingual definitions).
 
 mod build;
 mod dictzip;
 mod fetch;
 mod lang;
 mod model;
+mod model_def;
 mod package;
 mod stardict;
 
@@ -30,10 +35,10 @@ struct Cli {
 enum Command {
     /// Download the kaikki raw wiktextract dump for a language.
     Fetch {
-        /// Language code (only `fr` is supported initially).
+        /// Language code (`fr`, `it`).
         lang: String,
     },
-    /// Filter verbs, group forms into the conjugation grid, emit a StarDict.
+    /// Extract the language's product, group and render entries, emit a StarDict.
     Build {
         /// Language code.
         lang: String,
@@ -63,5 +68,6 @@ fn main() -> ExitCode {
 
 /// Resolve a language code or fail with a helpful message.
 fn resolve(code: &str) -> anyhow::Result<&'static lang::LangSpec> {
-    lang::resolve(code).ok_or_else(|| anyhow::anyhow!("unsupported language `{code}` (try `fr`)"))
+    lang::resolve(code)
+        .ok_or_else(|| anyhow::anyhow!("unsupported language `{code}` (try `fr` or `it`)"))
 }

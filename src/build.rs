@@ -15,8 +15,9 @@ use flate2::read::MultiGzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
 
-use crate::lang::{data_dir, LangSpec};
+use crate::lang::{data_dir, LangSpec, Product};
 use crate::model::Conjugation;
+use crate::model_def::{self, Entry, PosSection, Sense};
 use crate::stardict::{self, DictMeta};
 
 /// A dump line we care about. Unused fields are ignored by serde.
@@ -41,7 +42,68 @@ struct DumpForm {
     source: String,
 }
 
+/// A dump line for the definitions build. One kaikki object = one part-of-speech
+/// section of a headword.
+#[derive(Deserialize)]
+struct DefEntry {
+    word: String,
+    #[serde(default)]
+    lang_code: String,
+    /// Italian part-of-speech label ("Sostantivo", "Verbo", …).
+    #[serde(default)]
+    pos_title: String,
+    #[serde(default)]
+    senses: Vec<DefSense>,
+    #[serde(default)]
+    sounds: Vec<DefSound>,
+    /// Etymology text(s); itwiktionary fills the plural array, not the singular.
+    #[serde(default)]
+    etymology_texts: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct DefSense {
+    #[serde(default)]
+    glosses: Vec<String>,
+    #[serde(default)]
+    examples: Vec<DefExample>,
+    #[serde(default)]
+    form_of: Vec<DefFormOf>,
+}
+
+#[derive(Deserialize)]
+struct DefExample {
+    #[serde(default)]
+    text: String,
+}
+
+#[derive(Deserialize)]
+struct DefFormOf {
+    #[serde(default)]
+    word: String,
+}
+
+#[derive(Deserialize)]
+struct DefSound {
+    #[serde(default)]
+    ipa: String,
+    /// A regional/usage qualifier; we prefer an unqualified pronunciation.
+    #[serde(default)]
+    sense: String,
+    #[serde(default)]
+    raw_tags: Vec<String>,
+}
+
+/// Dispatch on the language's product: conjugation companion or full definitions.
 pub fn run(lang: &LangSpec) -> Result<()> {
+    match lang.product {
+        Product::Conjugation => build_conjugation(lang),
+        Product::Definitions => build_definitions(lang),
+    }
+}
+
+/// Open the language's dump, returning the file and its size for the byte bar.
+fn open_dump(lang: &LangSpec) -> Result<(File, u64)> {
     let dump = lang.dump_path();
     if !dump.exists() {
         bail!(
@@ -50,9 +112,13 @@ pub fn run(lang: &LangSpec) -> Result<()> {
             lang.code
         );
     }
-
     let file = File::open(&dump).with_context(|| format!("opening {}", dump.display()))?;
     let total = file.metadata()?.len();
+    Ok((file, total))
+}
+
+fn build_conjugation(lang: &LangSpec) -> Result<()> {
+    let (file, total) = open_dump(lang)?;
 
     println!("Building {} conjugation dictionary", lang.label);
 
@@ -148,6 +214,150 @@ pub fn run(lang: &LangSpec) -> Result<()> {
         lang.id
     );
     Ok(())
+}
+
+/// Build the full monolingual definition dictionary: keep every `lang_code`
+/// object, turn each into a part-of-speech section, group sections by headword,
+/// render to HTML, and write a StarDict set.
+fn build_definitions(lang: &LangSpec) -> Result<()> {
+    let (file, total) = open_dump(lang)?;
+
+    println!("Building {} definition dictionary", lang.label);
+
+    let pb = byte_bar(total);
+    let counted = pb.wrap_read(file);
+    let reader = BufReader::with_capacity(1 << 20, MultiGzDecoder::new(counted));
+
+    let mut entries: Vec<Entry> = Vec::new();
+    let mut by_word: HashMap<String, usize> = HashMap::new();
+    let mut sections = 0usize;
+
+    for line in reader.lines() {
+        let line = line.context("reading dump")?;
+        // Cheap prefilter: the dump carries foreign-word entries too; skip any
+        // line that can't be an Italian object before the JSON parse.
+        if !line.contains("\"lang_code\"") {
+            continue;
+        }
+        let entry: DefEntry = match serde_json::from_str(&line) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        if entry.lang_code != lang.code {
+            continue;
+        }
+
+        let Some(section) = to_section(&entry) else {
+            continue;
+        };
+        sections += 1;
+        pb.set_message(format!("{sections} sections"));
+
+        // Group every object sharing a headword into one multi-section entry.
+        match by_word.get(&entry.word) {
+            Some(&i) => entries[i].sections.push(section),
+            None => {
+                by_word.insert(entry.word.clone(), entries.len());
+                entries.push(Entry { word: entry.word, sections: vec![section] });
+            }
+        }
+    }
+    pb.finish_and_clear();
+    println!(
+        "Filtered {} sections → {} unique headwords",
+        sections,
+        entries.len()
+    );
+
+    if entries.is_empty() {
+        bail!("no definition entries found — is this the right dump for `{}`?", lang.code);
+    }
+
+    // Render each headword to its HTML entry.
+    let render = count_bar(entries.len() as u64, "rendering");
+    let rendered: Vec<(String, String)> = entries
+        .iter()
+        .map(|e| {
+            render.inc(1);
+            (e.word.clone(), e.to_html())
+        })
+        .collect();
+    render.finish_and_clear();
+
+    let out_dir = data_dir(lang.code).join(lang.id);
+    let bookname = format!("Wiktionary — {}", lang.label);
+    let meta = DictMeta {
+        bookname: &bookname,
+        author: "Wiktionary contributors",
+        description: "Monolingual dictionary from Wiktionary via kaikki.org / wiktextract (CC BY-SA 4.0).",
+        date: "",
+        sametypesequence: "h",
+    };
+    let written = stardict::write(&out_dir, lang.id, &meta, &rendered)?;
+
+    println!(
+        "Wrote {} entries to {}/{}.{{ifo,idx,dict,dict.dz}}",
+        written,
+        out_dir.display(),
+        lang.id
+    );
+    Ok(())
+}
+
+/// Turn one kaikki object into a [`PosSection`], or `None` when it has no
+/// part-of-speech label or nothing worth rendering.
+fn to_section(entry: &DefEntry) -> Option<PosSection> {
+    if entry.pos_title.is_empty() {
+        return None;
+    }
+    let senses: Vec<Sense> = entry
+        .senses
+        .iter()
+        .filter_map(|s| {
+            let examples: Vec<String> = s
+                .examples
+                .iter()
+                .map(|e| e.text.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect();
+            let form_of: Vec<String> = s
+                .form_of
+                .iter()
+                .map(|f| f.word.trim().to_string())
+                .filter(|w| !w.is_empty())
+                .collect();
+            Sense::build(&entry.word, &s.glosses, examples, form_of)
+        })
+        .collect();
+
+    let etymology = {
+        let joined = entry
+            .etymology_texts
+            .iter()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        (!joined.is_empty()).then_some(joined)
+    };
+
+    let section = PosSection {
+        pos_title: entry.pos_title.clone(),
+        ipa: pick_ipa(&entry.sounds),
+        etymology,
+        senses,
+    };
+    (!section.is_empty()).then_some(section)
+}
+
+/// Pick the header IPA: the first unqualified transcription (no regional/usage
+/// qualifier), falling back to the first with any IPA at all.
+fn pick_ipa(sounds: &[DefSound]) -> Option<String> {
+    let unqualified = sounds
+        .iter()
+        .find(|s| !s.ipa.trim().is_empty() && s.sense.is_empty() && s.raw_tags.is_empty());
+    let chosen = unqualified.or_else(|| sounds.iter().find(|s| !s.ipa.trim().is_empty()))?;
+    model_def::normalize_ipa(&chosen.ipa)
 }
 
 /// A byte-denominated progress bar (compressed bytes of the dump) with ETA and a
