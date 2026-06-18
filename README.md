@@ -15,14 +15,26 @@ More languages follow.
 
 ## Building
 
-The pipeline runs in three stages, each a subcommand taking a language code
-(`fr`, `it`):
+The pipeline runs in three stages, each a subcommand taking a dictionary **id**
+(`fr-conj`, `it-it`, `it-conj`, `en-conj`):
 
 ```sh
-cargo run --release -- fetch it      # download the kaikki dump to data/it/
-cargo run --release -- build it      # render entries → StarDict in data/it/it-it/
-cargo run --release -- package it    # tar + zstd → release assets in data/it/release/
+cargo run --release -- fetch it-it      # download the kaikki dump to data/itwiktionary/
+cargo run --release -- build it-it      # render entries → StarDict in data/it/it-it/
+cargo run --release -- package it-it    # tar + zstd → release assets in data/it/release/
 ```
+
+A dictionary's id selects both the source edition and the product. The raw dump
+is keyed by **edition** (`data/<edition>/`), so dictionaries sharing an edition
+download it once: `it-conj` and `en-conj` are both built from the one
+`enwiktionary` dump (it carries full per-person conjugation grids for every
+language, which the native `itwiktionary` edition does not).
+
+`fetch` streams into a `.partial` file and is **resumable** — these dumps are
+multi-GB and the server is slow, so if a download is interrupted just re-run the
+same `fetch` and it continues from where it stopped (via an HTTP `Range`
+request). A `.partial` is only renamed into place once fully downloaded, so a
+truncated file is never built from.
 
 `build` accepts `--lemmas-only` to drop inflected forms (a lean definitions
 build). `package` emits two assets per dictionary: `-plain` (uncompressed

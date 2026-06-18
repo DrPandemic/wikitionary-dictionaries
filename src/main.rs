@@ -35,12 +35,12 @@ struct Cli {
 enum Command {
     /// Download the kaikki raw wiktextract dump for a language.
     Fetch {
-        /// Language code (`fr`, `it`).
+        /// Dictionary id (`fr-conj`, `it-it`, `it-conj`, `en-conj`).
         lang: String,
     },
     /// Extract the language's product, group and render entries, emit a StarDict.
     Build {
-        /// Language code.
+        /// Dictionary id (`fr-conj`, `it-it`, `it-conj`, `en-conj`).
         lang: String,
         /// Drop inflected-form entries, keeping only lemmas (definitions builds).
         #[arg(long)]
@@ -48,7 +48,7 @@ enum Command {
     },
     /// Tar + zstd the built StarDict into a release asset.
     Package {
-        /// Language code.
+        /// Dictionary id (`fr-conj`, `it-it`, `it-conj`, `en-conj`).
         lang: String,
     },
 }
@@ -56,11 +56,11 @@ enum Command {
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
-        Command::Fetch { lang } => resolve(&lang).and_then(|l| fetch::run(l)),
+        Command::Fetch { lang } => resolve(&lang).and_then(fetch::run),
         Command::Build { lang, lemmas_only } => {
             resolve(&lang).and_then(|l| build::run(l, lemmas_only))
         }
-        Command::Package { lang } => resolve(&lang).and_then(|l| package::run(l)),
+        Command::Package { lang } => resolve(&lang).and_then(package::run),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -71,8 +71,12 @@ fn main() -> ExitCode {
     }
 }
 
-/// Resolve a language code or fail with a helpful message.
-fn resolve(code: &str) -> anyhow::Result<&'static lang::LangSpec> {
-    lang::resolve(code)
-        .ok_or_else(|| anyhow::anyhow!("unsupported language `{code}` (try `fr` or `it`)"))
+/// Resolve a dictionary id or fail with a helpful message.
+fn resolve(id: &str) -> anyhow::Result<&'static lang::LangSpec> {
+    lang::resolve(id).ok_or_else(|| {
+        anyhow::anyhow!(
+            "unsupported dictionary `{id}` (try one of: {})",
+            lang::supported_ids().join(", ")
+        )
+    })
 }

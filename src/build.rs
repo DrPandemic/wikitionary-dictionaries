@@ -16,7 +16,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
 
 use crate::lang::{data_dir, LangSpec, Product};
-use crate::model::Conjugation;
+use crate::model::{ConjShape, Conjugation};
 use crate::model_def::{self, Entry, PosSection, Sense};
 use crate::stardict::{self, DictMeta};
 
@@ -100,7 +100,7 @@ struct DefSound {
 /// effect on a conjugation build, which has no such sections).
 pub fn run(lang: &LangSpec, lemmas_only: bool) -> Result<()> {
     match lang.product {
-        Product::Conjugation => build_conjugation(lang),
+        Product::Conjugation(shape) => build_conjugation(lang, shape),
         Product::Definitions => build_definitions(lang, lemmas_only),
     }
 }
@@ -120,7 +120,7 @@ fn open_dump(lang: &LangSpec) -> Result<(File, u64)> {
     Ok((file, total))
 }
 
-fn build_conjugation(lang: &LangSpec) -> Result<()> {
+fn build_conjugation(lang: &LangSpec, shape: ConjShape) -> Result<()> {
     let (file, total) = open_dump(lang)?;
 
     println!("Building {} conjugation dictionary", lang.label);
@@ -136,9 +136,14 @@ fn build_conjugation(lang: &LangSpec) -> Result<()> {
 
     for line in reader.lines() {
         let line = line.context("reading dump")?;
-        // Cheap prefilter: skip the JSON parse unless a conjugation source is
-        // present at all. Cuts the ~6 GB stream down to the verb lines.
-        if !line.contains("\"Conjugaison:") {
+        // Cheap prefilter to skip the JSON parse for non-verb lines. The French
+        // source path keys on the `Conjugaison:` form source; the person-tagged
+        // path (en/it from enwiktionary) keys on the verb POS marker.
+        let keep = match shape {
+            ConjShape::FrenchSource => line.contains("\"Conjugaison:"),
+            _ => line.contains("\"pos\": \"verb\""),
+        };
+        if !keep {
             continue;
         }
         let entry: DumpEntry = match serde_json::from_str(&line) {
@@ -149,17 +154,26 @@ fn build_conjugation(lang: &LangSpec) -> Result<()> {
             continue;
         }
 
+        // French keeps only the `Conjugaison:`-sourced forms (the grid); the
+        // person-tagged path keeps every form and lets the grid match decide.
         let forms: Vec<(Vec<String>, String)> = entry
             .forms
             .into_iter()
-            .filter(|f| f.source.starts_with("Conjugaison:"))
+            .filter(|f| shape != ConjShape::FrenchSource || f.source.starts_with("Conjugaison:"))
             .map(|f| (f.tags, f.form))
             .collect();
         if forms.is_empty() {
             continue;
         }
 
-        let conj = Conjugation::from_forms(entry.word, &forms);
+        let conj = match shape {
+            ConjShape::FrenchSource => Conjugation::from_forms(entry.word, &forms),
+            shape => Conjugation::from_person_tagged(
+                entry.word,
+                &forms,
+                shape.grid().expect("person-tagged shape has a grid"),
+            ),
+        };
         if conj.sections.is_empty() {
             continue;
         }
@@ -200,7 +214,7 @@ fn build_conjugation(lang: &LangSpec) -> Result<()> {
     render.finish_and_clear();
 
     let out_dir = data_dir(lang.code).join(lang.id);
-    let bookname = format!("Conjugaison — {}", lang.label);
+    let bookname = format!("{} — {}", shape.book_prefix(), lang.label);
     let meta = DictMeta {
         bookname: &bookname,
         author: "Wiktionary contributors",
