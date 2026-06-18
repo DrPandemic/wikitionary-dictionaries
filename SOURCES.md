@@ -41,3 +41,22 @@ the same `.ifo`/`.idx`.
 `-plain` carries an uncompressed `.dict` (smaller download, larger on disk);
 `-dictzip` carries a `.dict.dz` (small download *and* small on disk). Both share
 the same `.ifo`/`.idx`.
+
+## it-conj — Coniugazione — Italiano (verb conjugation companion)
+
+- **Source edition:** enwiktionary
+  (<https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz>) — Italian
+  conjugation is built from **English** Wiktionary, which (unlike `itwiktionary`)
+  carries the full per-person grid for Italian verbs.
+- **kaikki snapshot:** 2026-06-15
+- **Headwords:** 14,187 (verb conjugation tables)
+- **License:** CC BY-SA 4.0 — © Wiktionary contributors
+
+| Asset | Size | SHA-256 |
+|---|---|---|
+| `it-conj-plain.tar.zst` | 1.6 MB | `8798d281142cf876f2db1f5735adb6da9e1b6ccd1743edf4876542deccd60042` |
+| `it-conj-dictzip.tar.zst` | 2.0 MB | `07207ef99b47fef1dd40d33f3045bb6b65005dce325832e23f128a68b2729963` |
+
+`-plain` carries an uncompressed `.dict` (smaller download, larger on disk);
+`-dictzip` carries a `.dict.dz` (small download *and* small on disk). Both share
+the same `.ifo`/`.idx`.
